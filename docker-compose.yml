@@ -1,0 +1,53 @@
+version: '3.8'
+
+services:
+  web:
+    build: .
+    command: >
+      sh -c "
+      python e_net/manage.py migrate &&
+      python e_net/manage.py flush --no-input &&
+      python e_net/manage.py loaddata e_net/network/fixtures/all_data.json && python e_net/manage.py runserver 0.0.0.0:8000
+      "
+    volumes:
+      - .:/app
+    ports:
+      - "8000:8000"
+    depends_on:
+      - db
+      - redis
+
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: e_network_db
+      POSTGRES_USER: test_user
+      POSTGRES_PASSWORD: 1234
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+  redis:
+    image: redis:7.4.0
+
+  celery:
+    build: .
+    command: celery -A e_net worker --loglevel=info
+    volumes:
+      - .:/appё
+    working_dir: /app/e_net
+    depends_on:
+      - web
+      - redis
+
+  celery-beat:
+    build: .
+    command: celery -A e_net beat --loglevel=info
+    volumes:
+      - .:/app
+    working_dir: /app/e_net
+    depends_on:
+      - web
+      - redis
+
+volumes:
+  pgdata:
